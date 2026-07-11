@@ -1,11 +1,14 @@
 using DotnetInventoryApi.Data;
 using DotnetInventoryApi.Dtos;
 using DotnetInventoryApi.Models;
+using DotnetInventoryApi.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DotnetInventoryApi.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/suppliers")]
 public sealed class SuppliersController(
@@ -58,6 +61,7 @@ public sealed class SuppliersController(
         return Ok(supplier);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpPost]
     public async Task<ActionResult<SupplierResponse>> Create(
         CreateSupplierRequest request,
@@ -87,6 +91,7 @@ public sealed class SuppliersController(
         };
 
         dbContext.Suppliers.Add(supplier);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var response = MapResponse(supplier);
@@ -97,6 +102,7 @@ public sealed class SuppliersController(
             response);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<SupplierResponse>> Update(
         int id,
@@ -144,6 +150,7 @@ public sealed class SuppliersController(
         return Ok(MapResponse(supplier));
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -171,11 +178,13 @@ public sealed class SuppliersController(
         {
             return Conflict(new
             {
-                message = "The supplier cannot be deleted because it has associated products."
+                message =
+                    "The supplier cannot be deleted because it has associated products."
             });
         }
 
         dbContext.Suppliers.Remove(supplier);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();

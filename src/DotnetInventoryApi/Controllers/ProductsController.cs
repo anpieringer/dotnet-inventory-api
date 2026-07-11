@@ -1,11 +1,14 @@
 using DotnetInventoryApi.Data;
 using DotnetInventoryApi.Dtos;
 using DotnetInventoryApi.Models;
+using DotnetInventoryApi.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DotnetInventoryApi.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/products")]
 public sealed class ProductsController(
@@ -29,8 +32,12 @@ public sealed class ProductsController(
             var searchPattern = $"%{search.Trim()}%";
 
             query = query.Where(product =>
-                EF.Functions.ILike(product.Sku, searchPattern) ||
-                EF.Functions.ILike(product.Name, searchPattern));
+                EF.Functions.ILike(
+                    product.Sku,
+                    searchPattern) ||
+                EF.Functions.ILike(
+                    product.Name,
+                    searchPattern));
         }
 
         if (categoryId.HasValue)
@@ -100,12 +107,16 @@ public sealed class ProductsController(
         return Ok(product);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpPost]
     public async Task<ActionResult<ProductResponse>> Create(
         CreateProductRequest request,
         CancellationToken cancellationToken)
     {
-        var normalizedSku = request.Sku.Trim().ToUpperInvariant();
+        var normalizedSku = request.Sku
+            .Trim()
+            .ToUpperInvariant();
+
         var normalizedName = request.Name.Trim();
 
         var skuExists = await dbContext.Products
@@ -117,7 +128,8 @@ public sealed class ProductsController(
         {
             return Conflict(new
             {
-                message = "A product with that SKU already exists."
+                message =
+                    "A product with that SKU already exists."
             });
         }
 
@@ -132,7 +144,8 @@ public sealed class ProductsController(
         {
             return BadRequest(new
             {
-                message = "The selected category does not exist or is inactive."
+                message =
+                    "The selected category does not exist or is inactive."
             });
         }
 
@@ -147,7 +160,8 @@ public sealed class ProductsController(
         {
             return BadRequest(new
             {
-                message = "The selected supplier does not exist or is inactive."
+                message =
+                    "The selected supplier does not exist or is inactive."
             });
         }
 
@@ -155,7 +169,8 @@ public sealed class ProductsController(
         {
             Sku = normalizedSku,
             Name = normalizedName,
-            Description = NormalizeOptional(request.Description),
+            Description =
+                NormalizeOptional(request.Description),
             CostPrice = request.CostPrice,
             SalePrice = request.SalePrice,
             Stock = request.Stock,
@@ -165,7 +180,9 @@ public sealed class ProductsController(
         };
 
         dbContext.Products.Add(product);
-        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
 
         var response = await GetResponseByIdAsync(
             product.Id,
@@ -177,6 +194,7 @@ public sealed class ProductsController(
             response);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ProductResponse>> Update(
         int id,
@@ -196,7 +214,10 @@ public sealed class ProductsController(
             });
         }
 
-        var normalizedSku = request.Sku.Trim().ToUpperInvariant();
+        var normalizedSku = request.Sku
+            .Trim()
+            .ToUpperInvariant();
+
         var normalizedName = request.Name.Trim();
 
         var duplicateSku = await dbContext.Products
@@ -210,7 +231,8 @@ public sealed class ProductsController(
         {
             return Conflict(new
             {
-                message = "A product with that SKU already exists."
+                message =
+                    "A product with that SKU already exists."
             });
         }
 
@@ -225,7 +247,8 @@ public sealed class ProductsController(
         {
             return BadRequest(new
             {
-                message = "The selected category does not exist or is inactive."
+                message =
+                    "The selected category does not exist or is inactive."
             });
         }
 
@@ -240,13 +263,15 @@ public sealed class ProductsController(
         {
             return BadRequest(new
             {
-                message = "The selected supplier does not exist or is inactive."
+                message =
+                    "The selected supplier does not exist or is inactive."
             });
         }
 
         product.Sku = normalizedSku;
         product.Name = normalizedName;
-        product.Description = NormalizeOptional(request.Description);
+        product.Description =
+            NormalizeOptional(request.Description);
         product.CostPrice = request.CostPrice;
         product.SalePrice = request.SalePrice;
         product.Stock = request.Stock;
@@ -256,7 +281,8 @@ public sealed class ProductsController(
         product.SupplierId = request.SupplierId;
         product.UpdatedAtUtc = DateTime.UtcNow;
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
 
         var response = await GetResponseByIdAsync(
             product.Id,
@@ -265,6 +291,7 @@ public sealed class ProductsController(
         return Ok(response);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -284,7 +311,9 @@ public sealed class ProductsController(
         }
 
         dbContext.Products.Remove(product);
-        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return NoContent();
     }
@@ -315,7 +344,8 @@ public sealed class ProductsController(
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private static string? NormalizeOptional(string? value)
+    private static string? NormalizeOptional(
+        string? value)
     {
         return string.IsNullOrWhiteSpace(value)
             ? null

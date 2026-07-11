@@ -1,11 +1,14 @@
 using DotnetInventoryApi.Data;
 using DotnetInventoryApi.Dtos;
 using DotnetInventoryApi.Models;
+using DotnetInventoryApi.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DotnetInventoryApi.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/categories")]
 public sealed class CategoriesController(
@@ -54,6 +57,7 @@ public sealed class CategoriesController(
         return Ok(category);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpPost]
     public async Task<ActionResult<CategoryResponse>> Create(
         CreateCategoryRequest request,
@@ -77,10 +81,11 @@ public sealed class CategoriesController(
         var category = new Category
         {
             Name = normalizedName,
-            Description = request.Description?.Trim()
+            Description = NormalizeOptionalText(request.Description)
         };
 
         dbContext.Categories.Add(category);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var response = new CategoryResponse(
@@ -95,6 +100,7 @@ public sealed class CategoriesController(
             response);
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<CategoryResponse>> Update(
         int id,
@@ -132,7 +138,8 @@ public sealed class CategoriesController(
         }
 
         category.Name = normalizedName;
-        category.Description = request.Description?.Trim();
+        category.Description =
+            NormalizeOptionalText(request.Description);
         category.IsActive = request.IsActive;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -144,6 +151,7 @@ public sealed class CategoriesController(
             category.IsActive));
     }
 
+    [Authorize(Roles = UserRoles.Admin)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -171,13 +179,22 @@ public sealed class CategoriesController(
         {
             return Conflict(new
             {
-                message = "The category cannot be deleted because it has associated products."
+                message =
+                    "The category cannot be deleted because it has associated products."
             });
         }
 
         dbContext.Categories.Remove(category);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 }
