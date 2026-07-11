@@ -13,6 +13,8 @@ public sealed class InventoryDbContext(
 
     public DbSet<Supplier> Suppliers => Set<Supplier>();
 
+    public DbSet<AppUser> Users => Set<AppUser>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -54,6 +56,26 @@ public sealed class InventoryDbContext(
                 .WithMany(supplier => supplier.Products)
                 .HasForeignKey(product => product.SupplierId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.HasKey(user => user.Id);
+
+            entity.HasIndex(user => user.NormalizedEmail)
+                .IsUnique();
+
+            entity.Property(user => user.FullName)
+                .HasMaxLength(150);
+
+            entity.Property(user => user.Email)
+                .HasMaxLength(150);
+
+            entity.Property(user => user.NormalizedEmail)
+                .HasMaxLength(150);
+
+            entity.Property(user => user.Role)
+                .HasMaxLength(30);
         });
     }
 }
