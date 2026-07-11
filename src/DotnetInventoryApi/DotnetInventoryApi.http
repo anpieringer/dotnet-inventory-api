@@ -1,0 +1,6 @@
+@DotnetInventoryApi_HostAddress = http://localhost:5063
+
+GET {{DotnetInventoryApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
