@@ -115,6 +115,16 @@ builder.Services.AddScoped<JwtTokenService>();
 
 var app = builder.Build();
 
+var applyMigrations =
+    builder.Configuration.GetValue<bool>(
+        "Database:ApplyMigrations");
+
+if (applyMigrations)
+{
+    await DatabaseMigrationRunner.ApplyAsync(
+        app.Services);
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -130,8 +140,8 @@ if (app.Environment.IsDevelopment())
                 "Bearer",
                 authentication =>
                 {
-                    // El token se ingresa manualmente
-                    // desde la interfaz de Scalar.
+                    // The JWT is entered manually
+                    // through the Scalar interface.
                 });
     });
 }
@@ -144,6 +154,37 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+internal static class DatabaseMigrationRunner
+{
+    public static async Task ApplyAsync(
+        IServiceProvider services)
+    {
+        await using var scope =
+            services.CreateAsyncScope();
+
+        var loggerFactory =
+            scope.ServiceProvider
+                .GetRequiredService<ILoggerFactory>();
+
+        var logger =
+            loggerFactory.CreateLogger(
+                "DatabaseMigration");
+
+        var dbContext =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    InventoryDbContext>();
+
+        logger.LogInformation(
+            "Applying pending database migrations.");
+
+        await dbContext.Database.MigrateAsync();
+
+        logger.LogInformation(
+            "Database migrations completed.");
+    }
+}
 
 internal sealed class BearerSecuritySchemeTransformer(
     IAuthenticationSchemeProvider
