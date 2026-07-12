@@ -130,7 +130,12 @@ if (applyMigrations)
         app.Services);
 }
 
-if (app.Environment.IsDevelopment())
+var apiDocumentationEnabled =
+    app.Environment.IsDevelopment() ||
+    builder.Configuration.GetValue<bool>(
+        "ApiDocumentation:Enabled");
+
+if (apiDocumentationEnabled)
 {
     app.MapOpenApi();
 
@@ -145,13 +150,28 @@ if (app.Environment.IsDevelopment())
                 "Bearer",
                 authentication =>
                 {
-                    // The JWT is entered manually
+                    // Enter the JWT manually
                     // through the Scalar interface.
                 });
     });
-}
 
-app.UseHttpsRedirection();
+    app.MapGet(
+            "/",
+            () => Results.Redirect("/scalar"))
+        .AllowAnonymous();
+}
+else
+{
+    app.MapGet(
+            "/",
+            () => Results.Ok(new
+            {
+                name = "Inventory Management API",
+                status = "Running",
+                health = "/health"
+            }))
+        .AllowAnonymous();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
