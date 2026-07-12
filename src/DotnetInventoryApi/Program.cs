@@ -34,6 +34,11 @@ var connectionString =
 builder.Services.AddDbContext<InventoryDbContext>(
     options => options.UseNpgsql(connectionString));
 
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<InventoryDbContext>(
+        name: "database");
+
 var jwtSection =
     builder.Configuration.GetSection(
         JwtOptions.SectionName);
@@ -150,6 +155,9 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHealthChecks("/health")
+    .AllowAnonymous();
 
 app.MapControllers();
 
