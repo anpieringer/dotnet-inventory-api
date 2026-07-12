@@ -1,18 +1,29 @@
 using System.Security.Claims;
-using System.Text;
 using DotnetInventoryApi.Data;
 using DotnetInventoryApi.Models;
 using DotnetInventoryApi.Security;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<
+        BearerSecuritySchemeTransformer>();
+
+    options.AddOperationTransformer<
+        AuthOperationTransformer>();
+});
 
 var connectionString =
     builder.Configuration.GetConnectionString(
@@ -70,6 +81,7 @@ builder.Services
             new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
+
                 IssuerSigningKey =
                     new SymmetricSecurityKey(
                         jwtKeyBytes),
@@ -81,10 +93,15 @@ builder.Services
                 ValidAudience = jwtAudience,
 
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromSeconds(30),
 
-                NameClaimType = ClaimTypes.Name,
-                RoleClaimType = ClaimTypes.Role
+                ClockSkew =
+                    TimeSpan.FromSeconds(30),
+
+                NameClaimType =
+                    ClaimTypes.Name,
+
+                RoleClaimType =
+                    ClaimTypes.Role
             };
     });
 
@@ -104,8 +121,18 @@ if (app.Environment.IsDevelopment())
 
     app.MapScalarApiReference(options =>
     {
-        options.WithTitle(
-            "Inventory Management API");
+        options
+            .WithTitle(
+                "Inventory Management API")
+            .AddPreferredSecuritySchemes(
+                "Bearer")
+            .AddHttpAuthentication(
+                "Bearer",
+                authentication =>
+                {
+                    // El token se ingresa manualmente
+                    // desde la interfaz de Scalar.
+                });
     });
 }
 
@@ -117,3 +144,104 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+internal sealed class BearerSecuritySchemeTransformer(
+    IAuthenticationSchemeProvider
+        authenticationSchemeProvider)
+    : IOpenApiDocumentTransformer
+{
+    public async Task TransformAsync(
+        OpenApiDocument document,
+        OpenApiDocumentTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        var authenticationSchemes =
+            await authenticationSchemeProvider
+                .GetAllSchemesAsync();
+
+        var bearerIsRegistered =
+            authenticationSchemes.Any(
+                authenticationScheme =>
+                    authenticationScheme.Name ==
+                    JwtBearerDefaults
+                        .AuthenticationScheme);
+
+        if (!bearerIsRegistered)
+        {
+            return;
+        }
+
+        document.Components ??=
+            new OpenApiComponents();
+
+        document.Components.SecuritySchemes ??=
+            new Dictionary<
+                string,
+                IOpenApiSecurityScheme>();
+
+        document.Components.SecuritySchemes[
+            "Bearer"] =
+            new OpenApiSecurityScheme
+            {
+                Type =
+                    SecuritySchemeType.Http,
+
+                Scheme = "bearer",
+
+                In =
+                    ParameterLocation.Header,
+
+                BearerFormat = "JWT",
+
+                Description =
+                    "Enter the JWT access token without the Bearer prefix."
+            };
+    }
+}
+
+internal sealed class AuthOperationTransformer
+    : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(
+        OpenApiOperation operation,
+        OpenApiOperationTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        var endpointMetadata =
+            context.Description
+                .ActionDescriptor
+                .EndpointMetadata;
+
+        var allowsAnonymousAccess =
+            endpointMetadata
+                .OfType<IAllowAnonymous>()
+                .Any();
+
+        var requiresAuthorization =
+            endpointMetadata
+                .OfType<IAuthorizeData>()
+                .Any();
+
+        if (allowsAnonymousAccess ||
+            !requiresAuthorization)
+        {
+            return Task.CompletedTask;
+        }
+
+        operation.Security ??=
+            new List<
+                OpenApiSecurityRequirement>();
+
+        operation.Security.Add(
+            new OpenApiSecurityRequirement
+            {
+                [
+                    new OpenApiSecuritySchemeReference(
+                        "Bearer",
+                        context.Document)
+                ] = []
+            });
+
+        return Task.CompletedTask;
+    }
+}
