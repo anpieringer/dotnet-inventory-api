@@ -6,6 +6,29 @@ RESTful inventory management API built with **ASP.NET Core**, **Entity Framework
 
 This backend portfolio project demonstrates relational database modeling, CRUD operations, authentication, role-based authorization, business rules, automated testing, interactive API documentation, continuous integration, and containerized execution.
 
+## Live Demo
+
+The API is publicly deployed using Render and Neon PostgreSQL.
+
+- **Interactive Scalar documentation:**  
+  https://dotnet-inventory-api.onrender.com/scalar
+
+- **Health check:**  
+  https://dotnet-inventory-api.onrender.com/health
+
+The Render free instance may take approximately one minute to start after a period of inactivity.
+
+### Testing the deployed API
+
+1. Open the Scalar documentation.
+2. Register a user through `POST /api/auth/register`.
+3. Log in through `POST /api/auth/login`.
+4. Copy the returned `accessToken`.
+5. Paste the token into the **Bearer Token** field under Authentication.
+6. Test the protected read endpoints.
+
+Publicly registered accounts receive the `User` role. Administrative write operations require an `Admin` account.
+
 ## Features
 
 - Complete CRUD operations for categories, suppliers, and products
